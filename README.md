@@ -24,8 +24,10 @@ A lamella slab mask can be useful in different scenarios when processing cellula
 # Installation
 ## Python environment
 Slabify currently depends on a few Python packages only: `numpy`, `scikit-learn` and `mrcfile`.
+
 **Tip:** you might already have a conda environment that satisfies these requirements (from another cryo-ET software package, for example), in which case you can skip these steps.
 Here is how you can create a virtual environment based on `conda` (or `mamba`) for running slabify:
+
 1. Create a new environment:
 ```bash
 conda create -n slabify python=3.12 numpy scikit-learn mrcfile
