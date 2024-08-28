@@ -18,7 +18,7 @@ A lamella slab mask can be useful in different scenarios when processing cellula
 * Speeding up template matching by avoiding searches in the void, as implemented in [STOPGAP](https://github.com/wan-lab-vanderbilt/STOPGAP), [GAPSTOP](https://gitlab.mpcdf.mpg.de/bturo/gapstop_tm) and [pytom-match-pick](https://github.com/SBC-Utrecht/pytom-match-pick)
 * Removing obvious false positives outside the lamella in particle picking (e.g. by template matching)
 * Clipping segmentations
-* Selecting only "interesting" subtomograms for denoising, as in [IsoNet](https://github.com/IsoNet-cryoET/IsoNet) and [DeepDeWedge](https://github.com/MLI-lab/DeepDeWedge)
+* Selecting only "interesting" subtomograms for training denoising, as in [IsoNet](https://github.com/IsoNet-cryoET/IsoNet) and [DeepDeWedge](https://github.com/MLI-lab/DeepDeWedge)
 * Assessing particle distribution within the lamella
 
 # Installation
@@ -52,7 +52,7 @@ You should now be able to run the `slabify` command.
 **TODO:** make slabify pip-installable.
 
 # Usage
-Using slabify is straightforward:
+Using Slabify is straightforward:
 ```bash
 slabify --input tomogram.mrc --output tomogram_slab_mask.mrc
 ```
@@ -69,7 +69,7 @@ Anything in this range of tomogram dimensions and pixel sizes should work well. 
 While slabify should work on any tomogram, high-contrast and "clean" tomos tend to give the best results. These can be obtained by applying a denoising tool such as [cryoCARE](https://github.com/juglab/cryoCARE_pip), [IsoNet](https://github.com/IsoNet-cryoET/IsoNet) or [DeepDeWedge](https://github.com/MLI-lab/DeepDeWedge) to your data before running slabify. The deconvolution filter from [Warp]((https://doi.org/10.1038/s41592-019-0580-y)) also works well for our purposes. See [here](https://github.com/CellArchLab/slabify-et/wiki/How-to-deconvolve-a-tomogram-using-IMOD) how to apply it using IMOD.
 
 ### The estimated slab is too thin, how can I improve it?
-It is known that slabify can be quite conservative in its estimation of the lamella boundaries. There are a few tips you can try to get thicker slab masks:
+It is known that Slabify can be quite conservative in its estimation of the lamella boundaries. There are a few tips you can try to get thicker slab masks:
 * The easiest way is to use the `--offset` option to arbitrarily grow your slab mask in the Z direction. Note that a negative value can be provided to make the slab *thinner*!
 * You can increase the number of `--iterations`. 3 to 5 iterations are usually good.
 * You can slightly decrease the `--percentile` of highest variance points in order to capture more information, say from 95 to 94.
