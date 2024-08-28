@@ -1,0 +1,458 @@
+#!/usr/bin/env python
+"""
+Lamella boundary mask generator.
+
+The program has three modes of operation:
+
+* Manual: a model (in .mod or .txt format) must be provided with at least 3 sets of 4 points defining the lamella boundary, so that two planes can be fit to define the top and bottom of the lamella, respectively.
+* Simple: The local variance of the tomogram will be analysed around random coordinates. A single plane will be fit defining the center of the lamella, around which a fixed distance is masked to define the lamella slab.
+* Advanced: The local variance of the tomogram will be analysed at random coordinates. Two planes will be fit to define the top and bottom of the lamella, respectively.
+"""
+import os
+import sys
+import subprocess
+import argparse
+import numpy as np
+import mrcfile
+from sklearn.linear_model import RANSACRegressor
+
+def parse_args() -> argparse.Namespace:
+    """
+    Parses command-line arguments for the lamella boundary mask generator.
+
+    Returns:
+        argparse.Namespace: Parsed command-line arguments.
+    """
+    parser = argparse.ArgumentParser(description='Lamella boundary mask generator.', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+    general_opts = parser.add_argument_group(title='General options')
+    general_opts.add_argument('-i','--input', type=str, help='Path to input tomogram in MRC format.', required=True)
+    general_opts.add_argument('-o','--output', type=str, help='Path to output mask in MRC format.', required=True)
+    general_opts.add_argument('--output-masked', type=str, help='Path to output masked volume in MRC format.')
+    general_opts.add_argument('--border', type=int, default=0, help='Voxels to exclude from the border in XY.')
+    general_opts.add_argument('--offset', type=int, default=0, help='Voxels to offset from the border along Z, i.e. to make a thicker (positive value) or thinner (negative value) slab mask.')
+    general_opts.add_argument('--angpix', type=float, help='Pixel size (in Angstroms) for output mask.')
+    general_opts.add_argument('--measure', default=False, action='store_true', help='Measure thickness of the lamella slab mask at the center of the tomogram.')
+    
+    manual_opts = parser.add_argument_group(title='Manual masking options (using model with points to define the boundary)')
+    manual_opts.add_argument('--points', type=str, help='Path to IMOD model containing boundary control points. Both .mod and .txt formats are accepted, but if a .mod file is supplied, IMOD is expected to be present in your $PATH.')
+
+    auto_opts = parser.add_argument_group(title='Automatic masking options (using local analysis of variance)')
+    auto_opts.add_argument('--n-samples', type=int, default=50000, help='Number of points to sample at random within the tomogram.')
+    auto_opts.add_argument('--box-size', type=int, default=32, help='Box size (in pixels) to analyze variance around each sampled point.')
+    auto_opts.add_argument('--iterations', type=int, default=3, help='Number of iterations for automatic fitting of top and bottom planes defining the lamella boundaries.')
+    auto_opts.add_argument('--simple', default=False, action='store_true', help='Fit a single plane through the center of the lamella and assume fixed lamella thickness.')
+    auto_opts.add_argument('--thickness', type=int, help='Total lamella thickness (in pixels) when doing simple automatic boundary masking. By default the program will use half the tomogram size in Z.')
+    auto_opts.add_argument('--percentile', type=float, default=95, help='Percentile of highest variance locations to select for fitting.')
+    auto_opts.add_argument('--seed', type=int, default=4056, help='Random seed.')
+
+    if len(sys.argv) == 1:
+        parser.print_help(sys.stderr)
+        sys.exit(1)
+
+    return parser.parse_args()
+
+
+def main():
+    """
+    Main function to generate the lamella boundary mask based on the parsed arguments.
+    """
+    args = parse_args()
+    input = args.input
+    output = args.output
+    output_masked = args.output_masked
+    points = args.points
+    border = args.border
+    offset = args.offset
+    n_samples = args.n_samples
+    box_size = args.box_size
+    iterations = args.iterations
+    simple = args.simple
+    measure = args.measure
+    thickness = args.thickness
+    percentile = args.percentile
+    seed = args.seed
+    angpix = args.angpix
+
+    inmrc = mrcfile.open(input, permissive=True)
+    tomo = np.array(inmrc.data)
+
+    # Check if a points file was provided:
+    if isinstance(points, str):
+
+        points_basename, points_ext = os.path.splitext(points)
+
+
+        # If the points file is provided in binary format (.mod) we call IMOD's model2point to convert it. IMOD must be already loaded for this to work:
+        if points_ext == '.mod':
+            subprocess.run(['model2point', points, points_basename + '.txt'])
+            points = points_basename + '.txt'
+
+        boundary = np.loadtxt(points)
+
+        # Create boundary mask using given points:
+        bmask = sg_tm_create_boundary_mask(mask_size=tomo.shape, boundary=boundary, z_offset=offset)
+
+    else:
+        # Create a boundary mask automatically:
+        bmask = create_boundary_mask_auto(tomo=tomo, N=n_samples, box_size=box_size, z_offset=offset, simple=simple, thickness=thickness, iterations=iterations, percentile=percentile, seed=seed)
+
+    # Mask out some voxels away from the border in XY:
+    bmask = apply_mask_border(mask=bmask, xy_border=border)
+
+    if not angpix:
+        print(f"Warning: --angpix was not provided. Using the pixel size from the input tomogram's header: {inmrc.voxel_size.x:.3f}")
+        angpix = inmrc.voxel_size.x
+
+    if measure:
+        measure_thickness(mask=bmask, z_offset=offset, angpix=angpix, verbose=True)
+
+    # Save output mask:
+    with mrcfile.new(output, overwrite=True) as outmrc:
+        outmrc.set_data(bmask)
+        outmrc.voxel_size = angpix
+
+    if output_masked:
+        # Save output masked volume:
+        with mrcfile.new(output_masked, overwrite=True) as outmrc:
+            outmrc.set_data(tomo * bmask)
+            outmrc.voxel_size = angpix
+
+def measure_thickness(mask: np.ndarray, yx_coords: tuple[int, int]=None, z_offset: float=0.0, angpix: float=None, verbose=False) -> tuple[float, float]:
+    """
+    Measure thickness in Z of binary slab mask at given point.
+
+    Args:
+        mask (np.ndarray): The lamella slab mask.
+        yx_coords (tuple, optional): the y,x coordinates where to measure the Z thickness. 
+        z_offset (float, optional): Offset in the Z direction for the mask. Defaults to 0.0.
+        angpix (float, optional): The pixel size in Angstroms for displaying the measured thickness, only relevant if verbose is True.
+        verbose (bool, optional): Whether to print the measured thickness with and without Z offset to the screen.
+
+    Returns:
+        tuple: Slab mask thickness with and without Z offset.
+    """
+    # If no coordinates are passed, we use the center of the volume:
+    if not yx_coords:
+        yx_coords = [mask.shape[1]//2, mask.shape[2]//2] # Remember mrcfile convention is [Z, Y, X]
+
+    t_with_offset = np.sum(mask[:, yx_coords[0], yx_coords[1]])
+    t_no_offset = t_with_offset - 2 * z_offset
+
+    if verbose:
+
+        if not angpix:
+            units = 'px'
+        else:
+            units = 'Å'
+            t_with_offset *= angpix
+            t_no_offset *= angpix
+
+        print(f'Slab mask thickness with Z offset: {t_with_offset:.2f} {units}')
+        print(f'Slab mask thickness without Z offset: {t_no_offset:.2f} {units}')
+
+    return t_with_offset, t_no_offset
+
+def sample_points(mask_size: np.ndarray, N: int=50000, box_size: int=32,  seed: int=42) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Sample points at random within the tomogram, staying away from the borders.
+
+    Args:
+        mask_size (np.ndarray): The dimensions of the tomogram.
+        N (int, optional): Number of points to sample. Defaults to 50000.
+        box_size (int, optional): Box size in pixels around each sampled point. Defaults to 32.
+        seed (int, optional): Random seed for reproducibility. Defaults to 42.
+
+    Returns:
+        tuple: Arrays of sampled Z, Y, X coordinates.
+    """
+    dims = mask_size
+    half_box = box_size // 2
+
+    np.random.seed(seed=seed)
+    Z_rand = np.random.randint(half_box, dims[0]-half_box, size=(N,))
+    Y_rand = np.random.randint(half_box, dims[1]-half_box, size=(N,))
+    X_rand = np.random.randint(half_box, dims[2]-half_box, size=(N,))
+
+    return Z_rand, Y_rand, X_rand
+
+def variance_at_points(tomo: np.ndarray, Z: np.ndarray, Y: np.ndarray, X: np.ndarray, N: int=50000, box_size: int=32) -> np.ndarray:
+    """
+    Calculate the variance around each sampled point within the specified box size.
+
+    Args:
+        tomo (np.ndarray): The tomogram array.
+        Z (np.ndarray): Array of sampled Z coordinates.
+        Y (np.ndarray): Array of sampled Y coordinates.
+        X (np.ndarray): Array of sampled X coordinates.
+        N (int, optional): Number of sampled points. Defaults to 50000.
+        box_size (int, optional): Box size in pixels around each sampled point. Defaults to 32.
+
+    Returns:
+        variances (np.ndarray): Array containing the variance at each sampled point.
+    """
+
+    half_box = box_size // 2
+
+    variances = np.zeros((N,))
+
+    for i in np.arange(N):
+
+        x, y, z = X[i], Y[i], Z[i]
+        x_min, x_max = x - half_box, x + half_box
+        y_min, y_max = y - half_box, y + half_box
+        z_min, z_max = z - half_box, z + half_box
+
+        box = tomo[z_min:z_max, y_min:y_max, x_min:x_max]
+
+        variances[i] = np.var(box)
+
+    return variances
+
+def create_boundary_mask_auto(tomo: np.ndarray, N: int=50000, box_size: int=32, z_offset: float=0.0, simple: bool=False, thickness: int=None, iterations: int=3, percentile: float=95, seed: int=42) -> np.ndarray:
+    """
+    Automatically create a slab (boundary) mask by fitting one or two planes to enclose the points with high variance.
+
+    Args:
+        tomo (np.ndarray): The tomogram array.
+        N (int, optional): Number of points to sample. Defaults to 50000.
+        box_size (int, optional): Box size in pixels to analyze variance around each sampled point. Defaults to 32.
+        z_offset (float, optional): Offset in the Z direction for the mask. Defaults to 0.0.
+        simple (bool, optional): Whether to use the simple masking method (single plane). Defaults to False.
+        thickness (int, optional): Total thickness of the lamella in pixels (used in simple mode). Defaults to None.
+        iterations (int, optional): Number of iterations for plane fitting. Defaults to 3.
+        percentile (float, optional): Percentile of highest variance locations to use for fitting. Defaults to 95.
+        seed (int, optional): Random seed for reproducibility. Defaults to 42.
+
+    Returns:
+        mask (np.ndarray): Binary mask representing the lamella slab.
+    """
+    dims = tomo.shape
+    # Sample N points at random:
+    Z_rand, Y_rand, X_rand = sample_points(mask_size=dims, N=N, box_size=box_size, seed=seed)
+    # Calculate the variance around each point:
+    variances = variance_at_points(tomo=tomo, Z=Z_rand, Y=Y_rand, X=X_rand, N=N, box_size=box_size)
+
+    variance_thr = np.percentile(variances, percentile)
+    idx = variances[:] > variance_thr
+    idx = idx.squeeze()
+    # We now threshold to only work with variances and coordinates for points above the threshold:
+    # Hopefully this represents points with "interesting" density, i.e. within the lamella:
+    variances = variances[idx]
+    Z_rand, Y_rand, X_rand = Z_rand[idx], Y_rand[idx], X_rand[idx]
+
+    # Robust linear fit using RANSAC:
+    fit = RANSACRegressor()
+    fit.fit(np.transpose([X_rand, Y_rand]), Z_rand)
+    n = np.array([fit.estimator_.coef_[0], fit.estimator_.coef_[1], -1])
+    p = np.array([0, 0, fit.estimator_.intercept_])
+
+    X, Y = np.meshgrid(np.arange(dims[2]), np.arange(dims[1]))
+    
+    if simple:
+        # Fit a single plane through the ~center of the lamella slab:
+        if not thickness:
+            thickness = float(dims[0]) / 2
+        half_thickness = thickness / 2
+        # The top and bottom planes are now defined
+        Z_top = plane_equation_Z_from_XY(X=X, Y=Y, n=n, p=p, z_offset=half_thickness+z_offset)
+        Z_bottom = plane_equation_Z_from_XY(X=X, Y=Y, n=n, p=p, z_offset=-half_thickness-z_offset)
+
+    else:
+        # Fit two planes to the high-variance points: one for the top and one for the bottom.
+        # Over iterations they should roughly enclose all the high variance points we previously selected.
+        i = 1
+
+        while i <= iterations:
+
+            if i == 1:
+                # In the first iteration we have a single plane at the center:
+                D = distance_of_points_to_plane(x=X_rand, y=Y_rand, z=Z_rand, n=n, p=p)
+
+                # 'above' and 'below' definitions must be inverted because of internal coordinate conventions:
+                above = D < 0
+                below = D > 0
+                X_above, Y_above, Z_above = X_rand[above], Y_rand[above], Z_rand[above]
+                X_below, Y_below, Z_below = X_rand[below], Y_rand[below], Z_rand[below]
+
+            else:
+                # From the second iteration we have two planes:
+                D_above = distance_of_points_to_plane(x=X_above, y=Y_above, z=Z_above, n=n_top, p=p_top)
+                D_below = distance_of_points_to_plane(x=X_below, y=Y_below, z=Z_below, n=n_bottom, p=p_bottom)
+
+                above = D_above < 0
+                below = D_below > 0
+                X_above, Y_above, Z_above = X_above[above], Y_above[above], Z_above[above]
+                X_below, Y_below, Z_below = X_below[below], Y_below[below], Z_below[below]
+
+            fit_top = RANSACRegressor()
+            fit_top.fit(np.transpose([X_above, Y_above]), Z_above)
+            fit_bottom = RANSACRegressor()
+            fit_bottom.fit(np.transpose([X_below, Y_below]), Z_below)
+            n_top = np.array([fit_top.estimator_.coef_[0], fit_top.estimator_.coef_[1], -1])
+            p_top = np.array([0, 0, fit_top.estimator_.intercept_])
+            n_bottom = np.array([fit_bottom.estimator_.coef_[0], fit_bottom.estimator_.coef_[1], -1])
+            p_bottom = np.array([0, 0, fit_bottom.estimator_.intercept_])
+
+            if i == iterations:
+
+                Z_top = plane_equation_Z_from_XY(X=X, Y=Y, n=n_top, p=p_top, z_offset=+z_offset)
+                Z_bottom = plane_equation_Z_from_XY(X=X, Y=Y, n=n_bottom, p=p_bottom, z_offset=-z_offset)
+
+            i += 1
+
+    Z_top[Z_top > dims[0]] = dims[0]
+    Z_bottom[Z_bottom < 0] = 0
+
+    mask = make_boundary_mask(mask_size=dims, Z_top=Z_top, Z_bottom=Z_bottom)
+
+    return mask
+
+def sg_tm_create_boundary_mask(mask_size: np.ndarray, boundary: np.ndarray, z_offset: float=0.0) -> np.ndarray:
+    """
+    Create a boundary mask for a tomogram assuming a slab geometry.
+    Reimplementation in Python of the MATLAB function:
+    https://github.com/wan-lab-vanderbilt/STOPGAP/blob/master/sg_toolbox/sg_tm_create_boundary_mask.m
+
+    NOTE: the Python version of this function assumes volume dimensions in the mrcfile convention: [Z, Y, X].
+    
+    Args:
+        mask_size (np.ndarray): The size of the tomogram to be masked in format (Z, Y, X).
+        boundary (np.ndarray): A plain-text file containing points that define the slab geometry.
+        xy_border (int, optional): Number of voxels to mask on each edge. Defaults to 0.
+    
+    Returns:
+        mask (np.ndarray): The boundary mask.
+    
+    Original author: William Wan
+    Converted to Python by: Ricardo D. Righetto (with some Copilot help)
+    
+    """
+
+    dims = mask_size
+    
+    # Parse top and bottom points
+    n_points = boundary.shape[0]
+    n_sets = n_points // 4
+    if n_points % 4 != 0:
+        raise ValueError('Input boundary coordinates must be supplied in sets of 4')
+    
+    top = np.zeros((n_sets * 2, 3))
+    bottom = np.zeros((n_sets * 2, 3))
+    
+    # Parse point list:
+    for i in range(n_sets):
+        top[2 * i] = boundary[4 * i]
+        top[2 * i + 1] = boundary[4 * i + 1]
+        bottom[2 * i] = boundary[4 * i + 2]
+        bottom[2 * i + 1] = boundary[4 * i + 3]
+    
+    # Generate boundaries
+    X, Y = np.meshgrid(np.arange(dims[2]), np.arange(dims[1]))
+
+    n_1, _, p_1 = affine_fit(top)
+    n_2, _, p_2 = affine_fit(bottom)
+    
+    Z_top = plane_equation_Z_from_XY(X=X, Y=Y, n=n_1, p=p_1, z_offset=z_offset)
+    Z_bottom = plane_equation_Z_from_XY(X=X, Y=Y, n=n_2, p=p_2, z_offset=-z_offset)
+
+    Z_top[Z_top > dims[0]] = dims[0]
+    Z_bottom[Z_bottom < 0] = 0
+
+    mask = make_boundary_mask(mask_size=dims, Z_top=Z_top, Z_bottom=Z_bottom)
+
+    return mask
+
+def make_boundary_mask(mask_size: np.ndarray, Z_top: np.ndarray, Z_bottom: np.ndarray):
+
+    dims = mask_size
+
+    # Generate mask
+    mask = np.zeros(dims, dtype=np.int8)
+
+    # Loop over X,Y and fill each column in Z with the mask where appropriate:
+    for i in range(dims[2]): # Loop over X
+        for j in range(dims[1]): # Loop over Y
+            z1 = int(round(Z_top[j, i]))
+            z2 = int(round(Z_bottom[j, i]))
+            mask[z2:z1, j, i] = 1
+
+    return mask
+
+def apply_mask_border(mask: np.ndarray, xy_border: int=0) -> np.ndarray:
+    """
+    Applies a border exclusion to the mask.
+
+    Args:
+        mask (np.ndarray): The binary mask to be adjusted.
+        xy_border (int, optional): Number of pixels to exclude from the XY border. Defaults to 0.
+
+    Returns:
+        mask (np.ndarray): The adjusted binary mask.
+    """
+    if xy_border > 0:
+        border = np.zeros(mask.shape, dtype=np.int8)
+        border[:, xy_border:-xy_border, xy_border:-xy_border] = 1
+        mask *= border
+    
+    return mask
+
+def affine_fit(X: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Computes the plane that best fits a set of sample points.
+    
+    Args:
+        X (np.ndarray): N by 3 matrix where each row is a sample point.
+    
+    Returns:
+        tuple: (n, V, p), where
+            n (np.ndarray): Unit vector normal to the plane.
+            V (np.ndarray): 3 by 2 matrix with orthonormal basis vectors of the plane.
+            p (np.ndarray): A point belonging to the plane.
+    """
+    # Compute mean of samples
+    p = np.mean(X, axis=0)
+    
+    # Reduce samples
+    R = X - p
+    
+    # Compute principal directions
+    V, _, _ = np.linalg.svd(R.T)
+    n = V[:, -1]
+    V = V[:, 0:-1]
+    
+    return n, V, p
+
+def plane_equation_Z_from_XY(X: np.ndarray, Y: np.ndarray, n: np.ndarray, p: np.ndarray, z_offset: float=0) -> np.ndarray:
+    """
+    Calculates the Z-coordinate of a plane given X and Y coordinates and plane coefficients.
+
+    Args:
+        X (np.ndarray): Array of X-coordinates.
+        Y (np.ndarray): Array of Y-coordinates.
+        coeffs (np.ndarray): Coefficients of the plane equation.
+        intercept (float): Intercept of the plane equation.
+
+    Returns:
+        Z (np.ndarray): The Z-coordinate values corresponding to the input X and Y coordinates.
+    """
+    return -(n[0] * X + n[1] * Y - np.dot(n, p)) / n[2] + z_offset
+
+def distance_of_points_to_plane(x: np.ndarray, y: np.ndarray, z: np.ndarray, n: np.ndarray, p: np.ndarray) -> np.ndarray:
+    """
+    Calculates the distance of points to a plane.
+
+    Args:
+        points (np.ndarray): Array of points.
+        coeffs (np.ndarray): Coefficients of the plane equation.
+        intercept (float): Intercept of the plane equation.
+
+    Returns:
+        D (np.ndarray): The distances of the points from the plane.
+    """
+    d = -np.dot(n, p)
+
+    return (n[2]*z + n[1]*y + n[0]*x + d) / np.sqrt(n[2]**2 + n[1]**2 + n[0]**2)
+
+if __name__ == '__main__':
+    main()
