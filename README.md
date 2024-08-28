@@ -61,10 +61,12 @@ slabify --input tomogram.mrc --output tomogram_slab_mask.mrc
 You may want to turn a few knobs to fine tune your results of course. Type `slabify --help` to see all options. See also the [FAQ](https://github.com/CellArchLab/slabify#faq) below.
 
 # FAQ
-### What tomogram dimensions are good for slabify?
+### What tomogram dimensions are good for Slabify?
 The following tomogram sizes have been tested:
+
 * 1024 x 1024 x 512, pixel size: 7.84 Å (bin4, Falcon4i detector)
 * 1024 x 1440 x 256, pixel size: 10.74 Å (bin4, K3 detector)
+
 Anything in this range of tomogram dimensions and pixel sizes should work well. The `--boxsize` and `--n-samples` options might need to be adjusted if you have something very different.
 
 ### What kind of filtering should I apply to my tomograms?
