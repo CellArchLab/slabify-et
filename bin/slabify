@@ -39,7 +39,7 @@ def parse_args() -> argparse.Namespace:
 
     auto_opts = parser.add_argument_group(title='Automatic masking options (using local analysis of variance)')
     auto_opts.add_argument('--n-samples', type=int, default=50000, help='Number of points to sample at random within the tomogram.')
-    auto_opts.add_argument('--box-size', type=int, default=32, help='Box size (in pixels) to analyze variance around each sampled point.')
+    auto_opts.add_argument('--boxsize', type=int, default=32, help='Box size (in pixels) to analyze variance around each sampled point.')
     auto_opts.add_argument('--iterations', type=int, default=3, help='Number of iterations for automatic fitting of top and bottom planes defining the lamella boundaries.')
     auto_opts.add_argument('--simple', default=False, action='store_true', help='Fit a single plane through the center of the lamella and assume fixed lamella thickness.')
     auto_opts.add_argument('--thickness', type=int, help='Total lamella thickness (in pixels) when doing simple automatic boundary masking. By default the program will use half the tomogram size in Z.')
@@ -65,7 +65,7 @@ def main():
     border = args.border
     offset = args.offset
     n_samples = args.n_samples
-    box_size = args.box_size
+    boxsize = args.boxsize
     iterations = args.iterations
     simple = args.simple
     measure = args.measure
@@ -95,7 +95,7 @@ def main():
 
     else:
         # Create a boundary mask automatically:
-        bmask = create_boundary_mask_auto(tomo=tomo, N=n_samples, box_size=box_size, z_offset=offset, simple=simple, thickness=thickness, iterations=iterations, percentile=percentile, seed=seed)
+        bmask = create_boundary_mask_auto(tomo=tomo, N=n_samples, boxsize=boxsize, z_offset=offset, simple=simple, thickness=thickness, iterations=iterations, percentile=percentile, seed=seed)
 
     # Mask out some voxels away from the border in XY:
     bmask = apply_mask_border(mask=bmask, xy_border=border)
@@ -153,21 +153,21 @@ def measure_thickness(mask: np.ndarray, yx_coords: tuple[int, int]=None, z_offse
 
     return t_with_offset, t_no_offset
 
-def sample_points(mask_size: np.ndarray, N: int=50000, box_size: int=32,  seed: int=42) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def sample_points(mask_size: np.ndarray, N: int=50000, boxsize: int=32,  seed: int=42) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Sample points at random within the tomogram, staying away from the borders.
 
     Args:
         mask_size (np.ndarray): The dimensions of the tomogram.
         N (int, optional): Number of points to sample. Defaults to 50000.
-        box_size (int, optional): Box size in pixels around each sampled point. Defaults to 32.
+        boxsize (int, optional): Box size in pixels around each sampled point. Defaults to 32.
         seed (int, optional): Random seed for reproducibility. Defaults to 42.
 
     Returns:
         tuple: Arrays of sampled Z, Y, X coordinates.
     """
     dims = mask_size
-    half_box = box_size // 2
+    half_box = boxsize // 2
 
     np.random.seed(seed=seed)
     Z_rand = np.random.randint(half_box, dims[0]-half_box, size=(N,))
@@ -176,7 +176,7 @@ def sample_points(mask_size: np.ndarray, N: int=50000, box_size: int=32,  seed: 
 
     return Z_rand, Y_rand, X_rand
 
-def variance_at_points(tomo: np.ndarray, Z: np.ndarray, Y: np.ndarray, X: np.ndarray, N: int=50000, box_size: int=32) -> np.ndarray:
+def variance_at_points(tomo: np.ndarray, Z: np.ndarray, Y: np.ndarray, X: np.ndarray, N: int=50000, boxsize: int=32) -> np.ndarray:
     """
     Calculate the variance around each sampled point within the specified box size.
 
@@ -186,13 +186,13 @@ def variance_at_points(tomo: np.ndarray, Z: np.ndarray, Y: np.ndarray, X: np.nda
         Y (np.ndarray): Array of sampled Y coordinates.
         X (np.ndarray): Array of sampled X coordinates.
         N (int, optional): Number of sampled points. Defaults to 50000.
-        box_size (int, optional): Box size in pixels around each sampled point. Defaults to 32.
+        boxsize (int, optional): Box size in pixels around each sampled point. Defaults to 32.
 
     Returns:
         variances (np.ndarray): Array containing the variance at each sampled point.
     """
 
-    half_box = box_size // 2
+    half_box = boxsize // 2
 
     variances = np.zeros((N,))
 
@@ -209,14 +209,14 @@ def variance_at_points(tomo: np.ndarray, Z: np.ndarray, Y: np.ndarray, X: np.nda
 
     return variances
 
-def create_boundary_mask_auto(tomo: np.ndarray, N: int=50000, box_size: int=32, z_offset: float=0.0, simple: bool=False, thickness: int=None, iterations: int=3, percentile: float=95, seed: int=42) -> np.ndarray:
+def create_boundary_mask_auto(tomo: np.ndarray, N: int=50000, boxsize: int=32, z_offset: float=0.0, simple: bool=False, thickness: int=None, iterations: int=3, percentile: float=95, seed: int=42) -> np.ndarray:
     """
     Automatically create a slab (boundary) mask by fitting one or two planes to enclose the points with high variance.
 
     Args:
         tomo (np.ndarray): The tomogram array.
         N (int, optional): Number of points to sample. Defaults to 50000.
-        box_size (int, optional): Box size in pixels to analyze variance around each sampled point. Defaults to 32.
+        boxsize (int, optional): Box size in pixels to analyze variance around each sampled point. Defaults to 32.
         z_offset (float, optional): Offset in the Z direction for the mask. Defaults to 0.0.
         simple (bool, optional): Whether to use the simple masking method (single plane). Defaults to False.
         thickness (int, optional): Total thickness of the lamella in pixels (used in simple mode). Defaults to None.
@@ -229,9 +229,9 @@ def create_boundary_mask_auto(tomo: np.ndarray, N: int=50000, box_size: int=32, 
     """
     dims = tomo.shape
     # Sample N points at random:
-    Z_rand, Y_rand, X_rand = sample_points(mask_size=dims, N=N, box_size=box_size, seed=seed)
+    Z_rand, Y_rand, X_rand = sample_points(mask_size=dims, N=N, boxsize=boxsize, seed=seed)
     # Calculate the variance around each point:
-    variances = variance_at_points(tomo=tomo, Z=Z_rand, Y=Y_rand, X=X_rand, N=N, box_size=box_size)
+    variances = variance_at_points(tomo=tomo, Z=Z_rand, Y=Y_rand, X=X_rand, N=N, boxsize=boxsize)
 
     variance_thr = np.percentile(variances, percentile)
     idx = variances[:] > variance_thr

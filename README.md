@@ -61,7 +61,7 @@ It is known that slabify can be quite conservative in its estimation of the lame
 * The easiest way is to use the `--offset` option to arbitrarily grow your slab mask in the Z direction. Note that a negative value can be provided to make the slab *thinner*!
 * You can increase the number of `--iterations`. 3 to 5 iterations are usually good.
 * You can slightly decrease the `--percentile` of highest variance points in order to capture more information, say from 95 to 94.
-* Tweaking the `--n-samples` and `--box-size` values can be beneficial in some cases (needs more testing).
+* Tweaking the `--n-samples` and `--boxsize` values can be beneficial in some cases (needs more testing).
 * Finally, the `--simple` mode with an arbitrary slab `--thickness` is generally a safe option.
 
 # Acknowledgments
