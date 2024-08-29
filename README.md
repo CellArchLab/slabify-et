@@ -26,7 +26,7 @@ A lamella slab mask can be useful in different scenarios when processing cellula
 Slabify currently depends on a few Python packages only: `numpy`, `scikit-learn` and `mrcfile`.
 
 **Tip:** you might already have a conda environment that satisfies these requirements (from another cryo-ET software package, for example), in which case you can skip these steps.
-Here is how you can create a virtual environment based on `conda` (or `mamba`) for running slabify:
+Here is how you can create a virtual environment based on `conda` (or `mamba`) for running Slabify:
 
 1. Create a new environment:
 ```bash
@@ -51,7 +51,7 @@ export PATH=$SLABIFY_HOME/bin:$PATH
 ```
 You should now be able to run the `slabify` command.
 
-**TODO:** make slabify pip-installable.
+**TODO:** make Slabify pip-installable.
 
 # Usage
 Using Slabify is straightforward:
@@ -64,13 +64,13 @@ You may want to turn a few knobs to fine tune your results of course. Type `slab
 ### What tomogram dimensions are good for Slabify?
 The following tomogram sizes have been tested:
 
-* 1024 x 1024 x 512, pixel size: 7.84 Å (bin4, Falcon4i detector)
-* 1024 x 1440 x 256, pixel size: 10.74 Å (bin4, K3 detector)
+* 1024 x 1024 x 512, 7.84 Å/px (bin4, Falcon4i detector)
+* 1024 x 1440 x 256, 10.74 Å/px (bin4, K3 detector)
 
 Anything in this range of tomogram dimensions and pixel sizes should work well. The `--boxsize` and `--n-samples` options might need to be adjusted if you have something very different.
 
 ### What kind of filtering should I apply to my tomograms?
-While slabify should work on any tomogram, high-contrast and "clean" tomos tend to give the best results. These can be obtained by applying a denoising tool such as [cryoCARE](https://github.com/juglab/cryoCARE_pip), [IsoNet](https://github.com/IsoNet-cryoET/IsoNet) or [DeepDeWedge](https://github.com/MLI-lab/DeepDeWedge) to your data before running slabify. The deconvolution filter from [Warp]((https://doi.org/10.1038/s41592-019-0580-y)) also works well for our purposes. See [here](https://github.com/CellArchLab/slabify-et/wiki/How-to-deconvolve-a-tomogram-using-IMOD) how to apply it using IMOD.
+While Slabify should work on any tomogram, high-contrast and "clean" tomos tend to give the best results. These can be obtained by applying a denoising tool such as [cryoCARE](https://github.com/juglab/cryoCARE_pip), [IsoNet](https://github.com/IsoNet-cryoET/IsoNet) or [DeepDeWedge](https://github.com/MLI-lab/DeepDeWedge) to your data before running Slabify. For a quicker alternative, the deconvolution filter from [Warp]((https://doi.org/10.1038/s41592-019-0580-y)) also works well for our purposes. See [here](https://github.com/CellArchLab/slabify-et/wiki/How-to-deconvolve-a-tomogram-using-IMOD) how to apply it using IMOD.
 
 ### The estimated slab is too thin, how can I improve it?
 It is known that Slabify can be quite conservative in its estimation of the lamella boundaries. There are a few tips you can try to get thicker slab masks:
