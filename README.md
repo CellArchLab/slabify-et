@@ -5,7 +5,7 @@ A CLI tool to automatically segment the lamella slab in cryo-ET volumes
 
 
 # Overview
-Slabify is a Python command-line tool to automatically segment the lamella slab from cellular cryo-electron tomography (cryo-ET) volumes. The program analyzes the local variance around random locations inside the tomogram to find where the "interesting" density is. There are three modes of operation:
+Slabify is a Python command-line tool to automatically segment the lamella slab from cellular cryo-electron tomography (cryo-ET) volumes. The program analyzes the local variance around random points inside the tomogram to find where the "interesting" density is. There are three modes of operation:
 1. Find the lamella boundaries by fitting two planes to the top and bottom sides of the slab iteratively (default).
 2. Fit a single plane through the center of the lamella, then expand a slab mask of the given `--thickness` in Z. This mode is enabled by the `--simple` flag, and tends to work better in "difficult" cases.
 3. If all else fails, you can still manually define the lamella boundaries by clicking a few points (12, to be precise) in IMOD and have `slabify` fit two planes defining the top and bottom sides of the slab. See [instructions](https://github.com/CellArchLab/slabify-et/wiki/How-to-manually-create-a-lamella-boundary-mask-using-IMOD) for details.
@@ -15,10 +15,10 @@ The first two modes employ robust fitting through the [RANSAC](https://scikit-le
 ## Applications
 A lamella slab mask can be useful in different scenarios when processing cellular cryo-ET data, for example:
 
-* Speeding up template matching by avoiding searches in the void, as implemented in [STOPGAP](https://github.com/wan-lab-vanderbilt/STOPGAP), [GAPSTOP](https://gitlab.mpcdf.mpg.de/bturo/gapstop_tm) and [pytom-match-pick](https://github.com/SBC-Utrecht/pytom-match-pick)
 * Removing obvious false positives outside the lamella in particle picking (e.g. by template matching)
+* Speeding up template matching by avoiding searches in the void, as implemented in [STOPGAP](https://github.com/wan-lab-vanderbilt/STOPGAP), [GAPSTOP](https://gitlab.mpcdf.mpg.de/bturo/gapstop_tm) and [pytom-match-pick](https://github.com/SBC-Utrecht/pytom-match-pick)
 * Clipping segmentations
-* Selecting only "interesting" subtomograms for training denoising, as in [IsoNet](https://github.com/IsoNet-cryoET/IsoNet) and [DeepDeWedge](https://github.com/MLI-lab/DeepDeWedge)
+* Selecting only "interesting" subtomograms for training denoising networks, as in [IsoNet](https://github.com/IsoNet-cryoET/IsoNet) and [DeepDeWedge](https://github.com/MLI-lab/DeepDeWedge)
 * Assessing particle distribution within the lamella
 
 # Installation
@@ -42,11 +42,11 @@ conda activate slabify
 ## Getting slabify
 1. Clone this repo:
 ```bash
-git clone https://github.com/CellArchLab/slabify.git
+git clone https://github.com/CellArchLab/slabify-et.git
 ```
 2. Add the script to your `PATH` environment variable:
 ```bash
-export SLABIFY_HOME=/path/to/slabify/
+export SLABIFY_HOME=/path/to/slabify-et/
 export PATH=$SLABIFY_HOME/bin:$PATH
 ```
 You should now be able to run the `slabify` command.
