@@ -23,11 +23,9 @@ A lamella slab mask can be useful in different scenarios when processing cellula
 
 # Installation
 
-Slabify currently depends on a few Python packages only: `numpy`, `scikit-learn` and `mrcfile`.
-
-1. Create a new conda environment (or use an existing one if you prefer):
+1. Create a conda environment (or use an existing one if you prefer):
 ```bash
-conda create -n slabify python=3.12 numpy scikit-learn mrcfile
+conda create -n slabify python=3.12
 ```
 2. Activate the environment:
 ```bash
