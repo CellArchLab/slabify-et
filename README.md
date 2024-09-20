@@ -22,14 +22,10 @@ A lamella slab mask can be useful in different scenarios when processing cellula
 * Assessing particle distribution within the lamella
 
 # Installation
-## Python environment
+
 Slabify currently depends on a few Python packages only: `numpy`, `scikit-learn` and `mrcfile`.
 
-### Option 1: using `conda`:
-**Tip:** you might already have a conda environment that satisfies these requirements (from another cryo-ET software package, for example), in which case you can skip these steps.
-Here is how you can create a virtual environment based on `conda` (or `mamba`) for running Slabify:
-
-1. Create a new environment:
+1. Create a new conda environment (or use an existing one if you prefer):
 ```bash
 conda create -n slabify python=3.12 numpy scikit-learn mrcfile
 ```
@@ -37,32 +33,16 @@ conda create -n slabify python=3.12 numpy scikit-learn mrcfile
 ```bash
 conda activate slabify
 ```
-  
-## Getting slabify
-1. Clone this repo:
-```bash
-git clone https://github.com/CellArchLab/slabify-et.git
-```
-2. Add the script to your `PATH` environment variable:
-```bash
-export SLABIFY_HOME=/path/to/slabify-et/
-export PATH=$SLABIFY_HOME/bin:$PATH
-```
-You should now be able to run the `slabify` command.
-
-### Option 2: using `pip`:
-If you prefer to install the package using `pip`, you can do so by first creating a virtual environment (see e.g. conda instructions above) and then installing the package:
+3. Clone the repo and install Slabify using `pip`:
 ```bash
 git clone https://github.com/CellArchLab/slabify-et.git
 cd slabify-et
 pip install .
 ```
-
-Now, you are also able to run the `slabify` command.
+Now, you should be able to run the `slabify` command.
 
 ## Optional dependencies
 * [IMOD](https://bio3d.colorado.edu/imod/): if you want to be able to create slab masks from IMOD models in `.mod` format directly, you should have IMOD installed and activated in your session.
-
 
 # Usage
 Using Slabify is straightforward:
