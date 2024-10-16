@@ -1,6 +1,7 @@
 # Slabify
 A CLI tool to automatically segment the lamella slab in cryo-ET volumes
 
+[![DOI](https://zenodo.org/badge/848790613.svg)](https://doi.org/10.5281/zenodo.13941082)
 ![slabify](https://github.com/user-attachments/assets/7c30cf40-76be-4293-ab65-dd5a651ced6b)
 
 
