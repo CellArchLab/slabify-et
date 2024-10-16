@@ -1,0 +1,6 @@
+v0.2.0:
+    - Slabify now pip-installable (from repo)
+    - Restructuring of the codebase
+v0.1.0:
+    - Initial release
+    
