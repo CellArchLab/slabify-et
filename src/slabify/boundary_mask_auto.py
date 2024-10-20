@@ -89,7 +89,9 @@ def create_boundary_mask_auto(
         # Over iterations they should roughly enclose all the high variance points we previously selected.
         i = 1
 
-        while i <= iterations:
+        # while i <= iterations:
+        while True:
+            print(f"Iteration {i}")
             if i == 1:
                 # In the first iteration we have a single plane at the center:
                 D = distance_of_points_to_plane(x=X_rand, y=Y_rand, z=Z_rand, n=n, p=p)
@@ -99,8 +101,10 @@ def create_boundary_mask_auto(
                 below = D > 0
                 X_above, Y_above, Z_above = X_rand[above], Y_rand[above], Z_rand[above]
                 X_below, Y_below, Z_below = X_rand[below], Y_rand[below], Z_rand[below]
+                old_coeff = n[0]
 
             else:
+                old_coeff = new_coeff
                 # From the second iteration we have two planes:
                 D_above = distance_of_points_to_plane(
                     x=X_above, y=Y_above, z=Z_above, n=n_top, p=p_top
@@ -129,21 +133,33 @@ def create_boundary_mask_auto(
             n_top = np.array(
                 [fit_top.estimator_.coef_[0], fit_top.estimator_.coef_[1], -1]
             )
+            new_coeff = n_top[0]
             p_top = np.array([0, 0, fit_top.estimator_.intercept_])
             n_bottom = np.array(
                 [fit_bottom.estimator_.coef_[0], fit_bottom.estimator_.coef_[1], -1]
             )
             p_bottom = np.array([0, 0, fit_bottom.estimator_.intercept_])
 
-            if i == iterations:
+            # if i == iterations:
+            #     Z_top = plane_equation_Z_from_XY(
+            #         X=X, Y=Y, n=n_top, p=p_top, z_offset=+z_offset
+            #     )
+            #     Z_bottom = plane_equation_Z_from_XY(
+            #         X=X, Y=Y, n=n_bottom, p=p_bottom, z_offset=-z_offset
+            #     )
+            print("n_top:", n_top)
+            print("n_bottom:",n_bottom)
+            if np.abs(new_coeff-old_coeff)/np.abs(old_coeff) < 0.01:
+
                 Z_top = plane_equation_Z_from_XY(
                     X=X, Y=Y, n=n_top, p=p_top, z_offset=+z_offset
                 )
                 Z_bottom = plane_equation_Z_from_XY(
                     X=X, Y=Y, n=n_bottom, p=p_bottom, z_offset=-z_offset
                 )
-
-            i += 1
+                break
+            else:
+                i += 1
 
     Z_top[Z_top > dims[0]] = dims[0]
     Z_bottom[Z_bottom < 0] = 0
