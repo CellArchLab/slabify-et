@@ -114,7 +114,17 @@ def variance_at_points(
 
 
 def make_boundary_mask(mask_size: np.ndarray, Z_top: np.ndarray, Z_bottom: np.ndarray):
+    """
+    Creates the boundary mask volume given the top and bottom planes.
 
+    Args:
+        mask_size (np.ndarray): The dimensions of the tomogram.
+        Z_top (np.ndarray): Volume containing the Z value of each voxel, according to top plane equation.
+        Z_bottom (np.ndarray): Volume containing the Z value of each voxel, according to bottom plane equation.
+
+    Returns:
+        mask (np.ndarray): The binary boundary mask, with value of 1 within the boundary and 0 outside.
+    """
     dims = mask_size
 
     # Generate mask
