@@ -36,7 +36,7 @@ def parse_args() -> argparse.Namespace:
         required=True,
     )
     general_opts.add_argument(
-        "--output-masked", type=str, help="Path to output masked volume in MRC format."
+        "--output-masked", "--output_masked", type=str, help="Path to output masked volume in MRC format."
     )
     general_opts.add_argument(
         "--border", type=int, default=0, help="Voxels to exclude from the border in XY."
@@ -70,7 +70,7 @@ def parse_args() -> argparse.Namespace:
         title="Automatic masking options (using local analysis of variance)"
     )
     auto_opts.add_argument(
-        "--n-samples",
+        "--n-samples", "--n_samples",
         type=int,
         default=50000,
         help="Number of points to sample at random within the tomogram.",
@@ -82,13 +82,13 @@ def parse_args() -> argparse.Namespace:
         help="Box size (in pixels) to analyze variance around each sampled point.",
     )
     auto_opts.add_argument(
-        "--z-min",
+        "--z-min", "--z_min",
         type=int,
         default=1,
         help="Minimum Z slice to consider in variance analysis, starting from 1. If not specified, will use the first slice.",
     )
     auto_opts.add_argument(
-        "--z-max",
+        "--z-max", "--z_max",
         type=int,
         default=None,
         help="Maximum Z slice to consider in variance analysis. If not specified, will use the last slice.",
