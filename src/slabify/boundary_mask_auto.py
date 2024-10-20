@@ -86,64 +86,48 @@ def create_boundary_mask_auto(
 
     else:
         # Fit two planes to the high-variance points: one for the top and one for the bottom.
-        # Over iterations they should roughly enclose all the high variance points we previously selected.
-        i = 1
 
-        while i <= iterations:
-            if i == 1:
-                # In the first iteration we have a single plane at the center:
-                D = distance_of_points_to_plane(x=X_rand, y=Y_rand, z=Z_rand, n=n, p=p)
+        # We start with a single plane at the center:
+        D = distance_of_points_to_plane(x=X_rand, y=Y_rand, z=Z_rand, n=n, p=p)
+        print(f"D.mean = {D.mean():.3f}; D.min = {D.min():.3f}; D.max = {D.max():.3f}")
 
-                # 'above' and 'below' definitions must be inverted because of internal coordinate conventions:
-                above = D < 0
-                below = D > 0
-                X_above, Y_above, Z_above = X_rand[above], Y_rand[above], Z_rand[above]
-                X_below, Y_below, Z_below = X_rand[below], Y_rand[below], Z_rand[below]
+        # 'above' and 'below' definitions must be inverted because of internal coordinate conventions:
+        # above = D < 0
+        # below = D > 0
+        percentile_dist = 98
+        thr_above = -np.percentile(-D, percentile_dist)
+        print(f"thr_above = {thr_above:.3f}")
+        above = D < thr_above
+        print(f"D[above].mean = {D[above].mean():.3f}; D[above].min = {D[above].min():.3f}; D[above].max = {D[above].max():.3f}")
+        # above = above.squeeze()
+        thr_below = np.percentile(D, percentile_dist)
+        print(f"thr_below = {thr_below:.3f}")
+        below = D > thr_below
+        print(f"D[below].mean = {D[below].mean():.3f}; D[below].min = {D[below].min():.3f}; D[below].max = {D[below].max():.3f}")
+        # below = below.squeeze()
 
-            else:
-                # From the second iteration we have two planes:
-                D_above = distance_of_points_to_plane(
-                    x=X_above, y=Y_above, z=Z_above, n=n_top, p=p_top
-                )
-                D_below = distance_of_points_to_plane(
-                    x=X_below, y=Y_below, z=Z_below, n=n_bottom, p=p_bottom
-                )
+        X_above, Y_above, Z_above = X_rand[above], Y_rand[above], Z_rand[above]
+        X_below, Y_below, Z_below = X_rand[below], Y_rand[below], Z_rand[below]
 
-                above = D_above < 0
-                below = D_below > 0
-                X_above, Y_above, Z_above = (
-                    X_above[above],
-                    Y_above[above],
-                    Z_above[above],
-                )
-                X_below, Y_below, Z_below = (
-                    X_below[below],
-                    Y_below[below],
-                    Z_below[below],
-                )
+        fit_top = RANSACRegressor()
+        fit_top.fit(np.transpose([X_above, Y_above]), Z_above)
+        fit_bottom = RANSACRegressor()
+        fit_bottom.fit(np.transpose([X_below, Y_below]), Z_below)
+        n_top = np.array(
+            [fit_top.estimator_.coef_[0], fit_top.estimator_.coef_[1], -1]
+        )
+        p_top = np.array([0, 0, fit_top.estimator_.intercept_])
+        n_bottom = np.array(
+            [fit_bottom.estimator_.coef_[0], fit_bottom.estimator_.coef_[1], -1]
+        )
+        p_bottom = np.array([0, 0, fit_bottom.estimator_.intercept_])
 
-            fit_top = RANSACRegressor()
-            fit_top.fit(np.transpose([X_above, Y_above]), Z_above)
-            fit_bottom = RANSACRegressor()
-            fit_bottom.fit(np.transpose([X_below, Y_below]), Z_below)
-            n_top = np.array(
-                [fit_top.estimator_.coef_[0], fit_top.estimator_.coef_[1], -1]
-            )
-            p_top = np.array([0, 0, fit_top.estimator_.intercept_])
-            n_bottom = np.array(
-                [fit_bottom.estimator_.coef_[0], fit_bottom.estimator_.coef_[1], -1]
-            )
-            p_bottom = np.array([0, 0, fit_bottom.estimator_.intercept_])
-
-            if i == iterations:
-                Z_top = plane_equation_Z_from_XY(
-                    X=X, Y=Y, n=n_top, p=p_top, z_offset=+z_offset
-                )
-                Z_bottom = plane_equation_Z_from_XY(
-                    X=X, Y=Y, n=n_bottom, p=p_bottom, z_offset=-z_offset
-                )
-
-            i += 1
+    Z_top = plane_equation_Z_from_XY(
+        X=X, Y=Y, n=n_top, p=p_top, z_offset=+z_offset
+    )
+    Z_bottom = plane_equation_Z_from_XY(
+        X=X, Y=Y, n=n_bottom, p=p_bottom, z_offset=-z_offset
+    )
 
     Z_top[Z_top > dims[0]] = dims[0]
     Z_bottom[Z_bottom < 0] = 0
