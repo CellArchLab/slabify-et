@@ -1,13 +1,12 @@
-from typing import Tuple
 import numpy as np
 from sklearn.linear_model import RANSACRegressor
 
 from slabify.utils import (
-    sample_points,
-    variance_at_points,
+    distance_of_points_to_plane,
     make_boundary_mask,
     plane_equation_Z_from_XY,
-    distance_of_points_to_plane,
+    sample_points,
+    variance_at_points,
 )
 
 
@@ -40,7 +39,8 @@ def create_boundary_mask_auto(
         percentile (float, optional): Percentile of highest variance locations to use for fitting. Defaults to 95.
         seed (int, optional): Random seed for reproducibility. Defaults to 42.
 
-    Returns:
+    Returns
+    -------
         mask (np.ndarray): Binary mask representing the lamella slab.
     """
     dims = tomo.shape
@@ -66,6 +66,8 @@ def create_boundary_mask_auto(
     fit.fit(np.transpose([X_rand, Y_rand]), Z_rand)
     n = np.array([fit.estimator_.coef_[0], fit.estimator_.coef_[1], -1])
     p = np.array([0, 0, fit.estimator_.intercept_])
+    n_top = n_bottom = np.zeros(n.shape)  # Initialize
+    p_top = p_bottom = np.zeros(p.shape)  # Initialize
 
     X, Y = np.meshgrid(np.arange(dims[2]), np.arange(dims[1]))
 
@@ -88,7 +90,6 @@ def create_boundary_mask_auto(
         i = 1
 
         while i <= iterations:
-
             if i == 1:
                 # In the first iteration we have a single plane at the center:
                 D = distance_of_points_to_plane(x=X_rand, y=Y_rand, z=Z_rand, n=n, p=p)
@@ -135,7 +136,6 @@ def create_boundary_mask_auto(
             p_bottom = np.array([0, 0, fit_bottom.estimator_.intercept_])
 
             if i == iterations:
-
                 Z_top = plane_equation_Z_from_XY(
                     X=X, Y=Y, n=n_top, p=p_top, z_offset=+z_offset
                 )
