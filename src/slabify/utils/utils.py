@@ -18,7 +18,8 @@ def measure_thickness(
         angpix (float, optional): The pixel size in Angstroms for displaying the measured thickness, only relevant if verbose is True.
         verbose (bool, optional): Whether to print the measured thickness with and without Z offset to the screen.
 
-    Returns:
+    Returns
+    -------
         tuple: Slab mask thickness with and without Z offset.
     """
     # If no coordinates are passed, we use the center of the volume:
@@ -32,7 +33,6 @@ def measure_thickness(
     t_no_offset = t_with_offset - 2 * z_offset
 
     if verbose:
-
         if not angpix:
             units = "px"
         else:
@@ -47,7 +47,12 @@ def measure_thickness(
 
 
 def sample_points(
-    mask_size: np.ndarray, N: int = 50000, boxsize: int = 32, seed: int = 42
+    mask_size: np.ndarray,
+    N: int = 50000,
+    boxsize: int = 32,
+    z_min: int = 1,
+    z_max: int = None,
+    seed: int = 42,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Sample points at random within the tomogram, staying away from the borders.
@@ -56,16 +61,21 @@ def sample_points(
         mask_size (np.ndarray): The dimensions of the tomogram.
         N (int, optional): Number of points to sample. Defaults to 50000.
         boxsize (int, optional): Box size in pixels around each sampled point. Defaults to 32.
+        z_min (int, optional): Minimum Z slice to sample, starting from 1. Defaults to 1.
+        z_max (int, optional): Maximum Z slice to sample. Defaults to None, which corresponds to the highest slice.
         seed (int, optional): Random seed for reproducibility. Defaults to 42.
 
-    Returns:
+    Returns
+    -------
         tuple: Arrays of sampled Z, Y, X coordinates.
     """
     dims = mask_size
     half_box = boxsize // 2
+    if not z_max:
+        z_max = dims[0]
 
     np.random.seed(seed=seed)
-    Z_rand = np.random.randint(half_box, dims[0] - half_box, size=(N,))
+    Z_rand = np.random.randint(z_min + half_box - 1, z_max - half_box, size=(N,))
     Y_rand = np.random.randint(half_box, dims[1] - half_box, size=(N,))
     X_rand = np.random.randint(half_box, dims[2] - half_box, size=(N,))
 
@@ -91,16 +101,15 @@ def variance_at_points(
         N (int, optional): Number of sampled points. Defaults to 50000.
         boxsize (int, optional): Box size in pixels around each sampled point. Defaults to 32.
 
-    Returns:
+    Returns
+    -------
         variances (np.ndarray): Array containing the variance at each sampled point.
     """
-
     half_box = boxsize // 2
 
     variances = np.zeros((N,))
 
     for i in np.arange(N):
-
         x, y, z = X[i], Y[i], Z[i]
         x_min, x_max = x - half_box, x + half_box
         y_min, y_max = y - half_box, y + half_box
@@ -114,7 +123,18 @@ def variance_at_points(
 
 
 def make_boundary_mask(mask_size: np.ndarray, Z_top: np.ndarray, Z_bottom: np.ndarray):
+    """
+    Creates the boundary mask volume given the top and bottom planes.
 
+    Args:
+        mask_size (np.ndarray): The dimensions of the tomogram.
+        Z_top (np.ndarray): Volume containing the Z value of each voxel, according to top plane equation.
+        Z_bottom (np.ndarray): Volume containing the Z value of each voxel, according to bottom plane equation.
+
+    Returns
+    -------
+        mask (np.ndarray): The binary boundary mask, with value of 1 within the boundary and 0 outside.
+    """
     dims = mask_size
 
     # Generate mask
@@ -138,7 +158,8 @@ def apply_mask_border(mask: np.ndarray, xy_border: int = 0) -> np.ndarray:
         mask (np.ndarray): The binary mask to be adjusted.
         xy_border (int, optional): Number of pixels to exclude from the XY border. Defaults to 0.
 
-    Returns:
+    Returns
+    -------
         mask (np.ndarray): The adjusted binary mask.
     """
     if xy_border > 0:
@@ -156,7 +177,8 @@ def affine_fit(X: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     Args:
         X (np.ndarray): N by 3 matrix where each row is a sample point.
 
-    Returns:
+    Returns
+    -------
         tuple: (n, V, p), where
             n (np.ndarray): Unit vector normal to the plane.
             V (np.ndarray): 3 by 2 matrix with orthonormal basis vectors of the plane.
@@ -188,7 +210,8 @@ def plane_equation_Z_from_XY(
         coeffs (np.ndarray): Coefficients of the plane equation.
         intercept (float): Intercept of the plane equation.
 
-    Returns:
+    Returns
+    -------
         Z (np.ndarray): The Z-coordinate values corresponding to the input X and Y coordinates.
     """
     return -(n[0] * X + n[1] * Y - np.dot(n, p)) / n[2] + z_offset
@@ -205,7 +228,8 @@ def distance_of_points_to_plane(
         coeffs (np.ndarray): Coefficients of the plane equation.
         intercept (float): Intercept of the plane equation.
 
-    Returns:
+    Returns
+    -------
         D (np.ndarray): The distances of the points from the plane.
     """
     d = -np.dot(n, p)

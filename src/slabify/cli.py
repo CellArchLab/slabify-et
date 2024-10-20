@@ -1,18 +1,19 @@
 import argparse
 import sys
 
-import numpy as np
 import mrcfile
+import numpy as np
 
-from slabify.utils import measure_thickness
 from slabify import slabify
+from slabify.utils import measure_thickness
 
 
 def parse_args() -> argparse.Namespace:
     """
     Parses command-line arguments for the lamella boundary mask generator.
 
-    Returns:
+    Returns
+    -------
         argparse.Namespace: Parsed command-line arguments.
     """
     parser = argparse.ArgumentParser(
@@ -36,7 +37,10 @@ def parse_args() -> argparse.Namespace:
         required=True,
     )
     general_opts.add_argument(
-        "--output-masked", type=str, help="Path to output masked volume in MRC format."
+        "--output-masked",
+        "--output_masked",
+        type=str,
+        help="Path to output masked volume in MRC format.",
     )
     general_opts.add_argument(
         "--border", type=int, default=0, help="Voxels to exclude from the border in XY."
@@ -71,6 +75,7 @@ def parse_args() -> argparse.Namespace:
     )
     auto_opts.add_argument(
         "--n-samples",
+        "--n_samples",
         type=int,
         default=50000,
         help="Number of points to sample at random within the tomogram.",
@@ -80,6 +85,20 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=32,
         help="Box size (in pixels) to analyze variance around each sampled point.",
+    )
+    auto_opts.add_argument(
+        "--z-min",
+        "--z_min",
+        type=int,
+        default=1,
+        help="Minimum Z slice to consider in variance analysis, starting from 1. If not specified, will use the first slice.",
+    )
+    auto_opts.add_argument(
+        "--z-max",
+        "--z_max",
+        type=int,
+        default=None,
+        help="Maximum Z slice to consider in variance analysis. If not specified, will use the last slice.",
     )
     auto_opts.add_argument(
         "--iterations",
@@ -114,9 +133,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main():
-    """
-    Main function to generate the lamella boundary mask based on the parsed arguments.
-    """
+    """Main function to generate the lamella boundary mask based on the parsed arguments."""
     args = parse_args()
     input = args.input
     output = args.output
@@ -126,6 +143,8 @@ def main():
     offset = args.offset
     n_samples = args.n_samples
     boxsize = args.boxsize
+    z_min = args.z_min
+    z_max = args.z_max
     iterations = args.iterations
     simple = args.simple
     measure = args.measure
@@ -144,6 +163,8 @@ def main():
         offset=offset,
         n_samples=n_samples,
         boxsize=boxsize,
+        z_min=z_min,
+        z_max=z_max,
         iterations=iterations,
         simple=simple,
         thickness=thickness,
