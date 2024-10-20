@@ -82,6 +82,18 @@ def parse_args() -> argparse.Namespace:
         help="Box size (in pixels) to analyze variance around each sampled point.",
     )
     auto_opts.add_argument(
+        "--z-min",
+        type=int,
+        default=1,
+        help="Minimum Z slice to consider in variance analysis, starting from 1. If not specified, will use the first slice.",
+    )
+    auto_opts.add_argument(
+        "--z-max",
+        type=int,
+        default=None,
+        help="Maximum Z slice to consider in variance analysis. If not specified, will use the last slice.",
+    )
+    auto_opts.add_argument(
         "--iterations",
         type=int,
         default=3,
@@ -126,6 +138,8 @@ def main():
     offset = args.offset
     n_samples = args.n_samples
     boxsize = args.boxsize
+    z_min = args.z_min
+    z_max = args.z_max
     iterations = args.iterations
     simple = args.simple
     measure = args.measure
@@ -144,6 +158,8 @@ def main():
         offset=offset,
         n_samples=n_samples,
         boxsize=boxsize,
+        z_min=z_min,
+        z_max=z_max,
         iterations=iterations,
         simple=simple,
         thickness=thickness,

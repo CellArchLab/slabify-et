@@ -47,7 +47,7 @@ def measure_thickness(
 
 
 def sample_points(
-    mask_size: np.ndarray, N: int = 50000, boxsize: int = 32, seed: int = 42
+    mask_size: np.ndarray, N: int = 50000, boxsize: int = 32, z_min: int = 1, z_max: int = None, seed: int = 42
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Sample points at random within the tomogram, staying away from the borders.
@@ -56,6 +56,8 @@ def sample_points(
         mask_size (np.ndarray): The dimensions of the tomogram.
         N (int, optional): Number of points to sample. Defaults to 50000.
         boxsize (int, optional): Box size in pixels around each sampled point. Defaults to 32.
+        z_min (int, optional): Minimum Z slice to sample, starting from 1. Defaults to 1.
+        z_max (int, optional): Maximum Z slice to sample. Defaults to None, which corresponds to the highest slice.
         seed (int, optional): Random seed for reproducibility. Defaults to 42.
 
     Returns:
@@ -63,9 +65,11 @@ def sample_points(
     """
     dims = mask_size
     half_box = boxsize // 2
+    if not z_max:
+        z_max = dims[0]
 
     np.random.seed(seed=seed)
-    Z_rand = np.random.randint(half_box, dims[0] - half_box, size=(N,))
+    Z_rand = np.random.randint(z_min + half_box - 1, z_max - half_box, size=(N,))
     Y_rand = np.random.randint(half_box, dims[1] - half_box, size=(N,))
     X_rand = np.random.randint(half_box, dims[2] - half_box, size=(N,))
 

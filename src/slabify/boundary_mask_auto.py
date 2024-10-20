@@ -15,6 +15,8 @@ def create_boundary_mask_auto(
     tomo: np.ndarray,
     N: int = 50000,
     boxsize: int = 32,
+    z_min: int = 1,
+    z_max: int = None,
     z_offset: float = 0.0,
     simple: bool = False,
     thickness: int = None,
@@ -29,6 +31,8 @@ def create_boundary_mask_auto(
         tomo (np.ndarray): The tomogram array.
         N (int, optional): Number of points to sample. Defaults to 50000.
         boxsize (int, optional): Box size in pixels to analyze variance around each sampled point. Defaults to 32.
+        z_min (int, optional): Minimum Z slice to sample, starting from 1. Defaults to 1.
+        z_max (int, optional): Maximum Z slice to sample. Defaults to None, which corresponds to the highest slice.
         z_offset (float, optional): Offset in the Z direction for the mask. Defaults to 0.0.
         simple (bool, optional): Whether to use the simple masking method (single plane). Defaults to False.
         thickness (int, optional): Total thickness of the lamella in pixels (used in simple mode). Defaults to None.
@@ -42,7 +46,7 @@ def create_boundary_mask_auto(
     dims = tomo.shape
     # Sample N points at random:
     Z_rand, Y_rand, X_rand = sample_points(
-        mask_size=dims, N=N, boxsize=boxsize, seed=seed
+        mask_size=dims, N=N, boxsize=boxsize, z_min=z_min, z_max=z_max, seed=seed
     )
     # Calculate the variance around each point:
     variances = variance_at_points(
