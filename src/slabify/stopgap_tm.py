@@ -1,4 +1,5 @@
 import numpy as np
+
 from slabify.utils import affine_fit, make_boundary_mask, plane_equation_Z_from_XY
 
 
@@ -8,7 +9,7 @@ def sg_tm_create_boundary_mask(
     """
     Create a boundary mask for a tomogram assuming a slab geometry.
     Reimplementation in Python of the MATLAB function:
-    https://github.com/wan-lab-vanderbilt/STOPGAP/blob/master/sg_toolbox/sg_tm_create_boundary_mask.m
+    https://github.com/wan-lab-vanderbilt/STOPGAP/blob/master/sg_toolbox/sg_tm_create_boundary_mask.m.
 
     NOTE: the Python version of this function assumes volume dimensions in the mrcfile convention: [Z, Y, X].
 
@@ -17,14 +18,14 @@ def sg_tm_create_boundary_mask(
         boundary (np.ndarray): A plain-text file containing points that define the slab geometry.
         xy_border (int, optional): Number of voxels to mask on each edge. Defaults to 0.
 
-    Returns:
+    Returns
+    -------
         mask (np.ndarray): The boundary mask.
 
     Original author: William Wan
     Converted to Python by: Ricardo D. Righetto (with some Copilot help)
 
     """
-
     dims = mask_size
 
     # Parse top and bottom points

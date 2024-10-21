@@ -1,13 +1,12 @@
-from typing import Tuple
 import numpy as np
 from sklearn.linear_model import RANSACRegressor
 
 from slabify.utils import (
-    sample_points,
-    variance_at_points,
+    distance_of_points_to_plane,
     make_boundary_mask,
     plane_equation_Z_from_XY,
-    distance_of_points_to_plane,
+    sample_points,
+    variance_at_points,
 )
 
 
@@ -15,6 +14,8 @@ def create_boundary_mask_auto(
     tomo: np.ndarray,
     N: int = 50000,
     boxsize: int = 32,
+    z_min: int = 1,
+    z_max: int = None,
     z_offset: float = 0.0,
     simple: bool = False,
     thickness: int = None,
@@ -29,6 +30,8 @@ def create_boundary_mask_auto(
         tomo (np.ndarray): The tomogram array.
         N (int, optional): Number of points to sample. Defaults to 50000.
         boxsize (int, optional): Box size in pixels to analyze variance around each sampled point. Defaults to 32.
+        z_min (int, optional): Minimum Z slice to sample, starting from 1. Defaults to 1.
+        z_max (int, optional): Maximum Z slice to sample. Defaults to None, which corresponds to the highest slice.
         z_offset (float, optional): Offset in the Z direction for the mask. Defaults to 0.0.
         simple (bool, optional): Whether to use the simple masking method (single plane). Defaults to False.
         thickness (int, optional): Total thickness of the lamella in pixels (used in simple mode). Defaults to None.
@@ -36,13 +39,14 @@ def create_boundary_mask_auto(
         percentile (float, optional): Percentile of highest variance locations to use for fitting. Defaults to 95.
         seed (int, optional): Random seed for reproducibility. Defaults to 42.
 
-    Returns:
+    Returns
+    -------
         mask (np.ndarray): Binary mask representing the lamella slab.
     """
     dims = tomo.shape
     # Sample N points at random:
     Z_rand, Y_rand, X_rand = sample_points(
-        mask_size=dims, N=N, boxsize=boxsize, seed=seed
+        mask_size=dims, N=N, boxsize=boxsize, z_min=z_min, z_max=z_max, seed=seed
     )
     # Calculate the variance around each point:
     variances = variance_at_points(
@@ -62,6 +66,8 @@ def create_boundary_mask_auto(
     fit.fit(np.transpose([X_rand, Y_rand]), Z_rand)
     n = np.array([fit.estimator_.coef_[0], fit.estimator_.coef_[1], -1])
     p = np.array([0, 0, fit.estimator_.intercept_])
+    n_top = n_bottom = np.zeros(n.shape)  # Initialize
+    p_top = p_bottom = np.zeros(p.shape)  # Initialize
 
     X, Y = np.meshgrid(np.arange(dims[2]), np.arange(dims[1]))
 
@@ -84,7 +90,6 @@ def create_boundary_mask_auto(
         i = 1
 
         while i <= iterations:
-
             if i == 1:
                 # In the first iteration we have a single plane at the center:
                 D = distance_of_points_to_plane(x=X_rand, y=Y_rand, z=Z_rand, n=n, p=p)
@@ -131,7 +136,6 @@ def create_boundary_mask_auto(
             p_bottom = np.array([0, 0, fit_bottom.estimator_.intercept_])
 
             if i == iterations:
-
                 Z_top = plane_equation_Z_from_XY(
                     X=X, Y=Y, n=n_top, p=p_top, z_offset=+z_offset
                 )

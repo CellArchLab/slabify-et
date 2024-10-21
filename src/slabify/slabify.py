@@ -1,9 +1,11 @@
 import os
 import subprocess
+
 import numpy as np
-from slabify.utils import apply_mask_border
-from slabify.stopgap_tm import sg_tm_create_boundary_mask
+
 from slabify.boundary_mask_auto import create_boundary_mask_auto
+from slabify.stopgap_tm import sg_tm_create_boundary_mask
+from slabify.utils import apply_mask_border
 
 
 def slabify(
@@ -13,6 +15,8 @@ def slabify(
     offset: float = 0.0,
     n_samples: int = 50000,
     boxsize: int = 32,
+    z_min: int = 1,
+    z_max: int = None,
     iterations: int = 3,
     simple: bool = False,
     thickness: int = None,
@@ -21,7 +25,6 @@ def slabify(
 ):
     # Check if a points file was provided:
     if isinstance(points, str):
-
         points_basename, points_ext = os.path.splitext(points)
 
         # If the points file is provided in binary format (.mod) we call IMOD's model2point to convert it. IMOD must be already loaded for this to work:
@@ -42,6 +45,8 @@ def slabify(
             tomo=tomo,
             N=n_samples,
             boxsize=boxsize,
+            z_min=z_min,
+            z_max=z_max,
             z_offset=offset,
             simple=simple,
             thickness=thickness,
