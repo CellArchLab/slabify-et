@@ -22,6 +22,7 @@ def slabify(
     thickness: int = None,
     percentile: float = 95,
     seed: int = 4056,
+    verbose: bool = False,
 ):
     # Check if a points file was provided:
     if isinstance(points, str):
@@ -53,6 +54,7 @@ def slabify(
             iterations=iterations,
             percentile=percentile,
             seed=seed,
+            verbose=verbose,
         )
 
     # Mask out some voxels away from the border in XY:

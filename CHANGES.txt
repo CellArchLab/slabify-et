@@ -1,3 +1,6 @@
+v0.4.0:
+    - Added verbose option to print number of points used at each fitting iteration
+    - Changed default percentile to 94
 v0.3.0:
     - Added feature to define minimum and maximum Z slice to use for analysis
     - Minor code improvements (docstrings, pre-commit hooks)

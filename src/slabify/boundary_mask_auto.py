@@ -22,6 +22,7 @@ def create_boundary_mask_auto(
     iterations: int = 3,
     percentile: float = 95,
     seed: int = 42,
+    verbose: bool = False,
 ) -> np.ndarray:
     """
     Automatically create a slab (boundary) mask by fitting one or two planes to enclose the points with high variance.
@@ -38,6 +39,7 @@ def create_boundary_mask_auto(
         iterations (int, optional): Number of iterations for plane fitting. Defaults to 3.
         percentile (float, optional): Percentile of highest variance locations to use for fitting. Defaults to 95.
         seed (int, optional): Random seed for reproducibility. Defaults to 42.
+        verbose (bool, optional): Whether to print verbose output (number of points at each iteration). Defaults to False.
 
     Returns
     -------
@@ -56,6 +58,8 @@ def create_boundary_mask_auto(
     variance_thr = np.percentile(variances, percentile)
     idx = variances[:] > variance_thr
     idx = idx.squeeze()
+    if verbose:
+        print(f"Number of points above threshold: {np.sum(idx)}")
     # We now threshold to only work with variances and coordinates for points above the threshold:
     # Hopefully this represents points with "interesting" density, i.e. within the lamella:
     variances = variances[idx]
@@ -97,6 +101,12 @@ def create_boundary_mask_auto(
                 # 'above' and 'below' definitions must be inverted because of internal coordinate conventions:
                 above = D < 0
                 below = D > 0
+                if verbose:
+                    n_above = np.sum(above)
+                    n_below = np.sum(below)
+                    print(
+                        f"Iteration {i}: {n_above} points above, {n_below} points below the plane."
+                    )
                 X_above, Y_above, Z_above = X_rand[above], Y_rand[above], Z_rand[above]
                 X_below, Y_below, Z_below = X_rand[below], Y_rand[below], Z_rand[below]
 
@@ -111,6 +121,13 @@ def create_boundary_mask_auto(
 
                 above = D_above < 0
                 below = D_below > 0
+
+                if verbose:
+                    n_above = np.sum(above)
+                    n_below = np.sum(below)
+                    print(
+                        f"Iteration {i}: {n_above} points above, {n_below} points below the plane."
+                    )
                 X_above, Y_above, Z_above = (
                     X_above[above],
                     Y_above[above],

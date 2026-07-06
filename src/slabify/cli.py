@@ -120,10 +120,16 @@ def parse_args() -> argparse.Namespace:
     auto_opts.add_argument(
         "--percentile",
         type=float,
-        default=95,
+        default=94,
         help="Percentile of highest variance locations to select for fitting.",
     )
     auto_opts.add_argument("--seed", type=int, default=4056, help="Random seed.")
+    auto_opts.add_argument(
+        "--verbose",
+        default=False,
+        action="store_true",
+        help="Print verbose output during plane fitting.",
+    )
 
     if len(sys.argv) == 1:
         parser.print_help(sys.stderr)
@@ -152,6 +158,7 @@ def main():
     percentile = args.percentile
     seed = args.seed
     angpix = args.angpix
+    verbose = args.verbose
 
     inmrc = mrcfile.open(input, permissive=True)
     tomo = np.array(inmrc.data)
@@ -170,6 +177,7 @@ def main():
         thickness=thickness,
         percentile=percentile,
         seed=seed,
+        verbose=verbose,
     )
 
     if not angpix:
