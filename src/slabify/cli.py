@@ -101,12 +101,6 @@ def parse_args() -> argparse.Namespace:
         help="Maximum Z slice to consider in variance analysis. If not specified, will use the last slice.",
     )
     auto_opts.add_argument(
-        "--iterations",
-        type=int,
-        default=3,
-        help="Number of iterations for automatic fitting of top and bottom planes defining the lamella boundaries.",
-    )
-    auto_opts.add_argument(
         "--simple",
         default=False,
         action="store_true",
@@ -118,10 +112,17 @@ def parse_args() -> argparse.Namespace:
         help="Total lamella thickness (in pixels) when doing simple automatic boundary masking. By default the program will use half the tomogram size in Z.",
     )
     auto_opts.add_argument(
-        "--percentile",
+        "-p","--percentile","--var-percentile",
         type=float,
-        default=94,
+        default=95,
         help="Percentile of highest variance locations to select for fitting.",
+    )
+    auto_opts.add_argument(
+        "--percentile-thresholds",
+        nargs=4,
+        type=float,
+        default=(10, 20, 80, 90),
+        help="Percentile thresholds for defining the thresholds for above and below points.",
     )
     auto_opts.add_argument("--seed", type=int, default=4056, help="Random seed.")
     auto_opts.add_argument(
@@ -151,11 +152,11 @@ def main():
     boxsize = args.boxsize
     z_min = args.z_min
     z_max = args.z_max
-    iterations = args.iterations
     simple = args.simple
     measure = args.measure
     thickness = args.thickness
-    percentile = args.percentile
+    var_percentile = args.percentile
+    percentile_thresholds = args.percentile_thresholds
     seed = args.seed
     angpix = args.angpix
     verbose = args.verbose
@@ -172,10 +173,10 @@ def main():
         boxsize=boxsize,
         z_min=z_min,
         z_max=z_max,
-        iterations=iterations,
         simple=simple,
         thickness=thickness,
-        percentile=percentile,
+        var_percentile=var_percentile,
+        percentile_thresholds=percentile_thresholds,
         seed=seed,
         verbose=verbose,
     )

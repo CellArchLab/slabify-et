@@ -17,10 +17,10 @@ def slabify(
     boxsize: int = 32,
     z_min: int = 1,
     z_max: int = None,
-    iterations: int = 3,
     simple: bool = False,
     thickness: int = None,
-    percentile: float = 95,
+    var_percentile: float = 95,
+    percentile_thresholds: tuple = (10, 20, 80, 90),
     seed: int = 4056,
     verbose: bool = False,
 ):
@@ -51,8 +51,8 @@ def slabify(
             z_offset=offset,
             simple=simple,
             thickness=thickness,
-            iterations=iterations,
-            percentile=percentile,
+            var_percentile=var_percentile,
+            percentile_thresholds=percentile_thresholds,
             seed=seed,
             verbose=verbose,
         )

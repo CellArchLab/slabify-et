@@ -19,8 +19,8 @@ def create_boundary_mask_auto(
     z_offset: float = 0.0,
     simple: bool = False,
     thickness: int = None,
-    iterations: int = 3,
-    percentile: float = 95,
+    var_percentile: float = 95,
+    percentile_thresholds: tuple = (10, 20, 80, 90),
     seed: int = 42,
     verbose: bool = False,
 ) -> np.ndarray:
@@ -37,7 +37,8 @@ def create_boundary_mask_auto(
         simple (bool, optional): Whether to use the simple masking method (single plane). Defaults to False.
         thickness (int, optional): Total thickness of the lamella in pixels (used in simple mode). Defaults to None.
         iterations (int, optional): Number of iterations for plane fitting. Defaults to 3.
-        percentile (float, optional): Percentile of highest variance locations to use for fitting. Defaults to 95.
+        var_percentile (float, optional): Percentile of highest variance locations to use for fitting. Defaults to 95.
+        percentile_thresholds (tuple, optional): Percentiles for defining the thresholds for above and below points. Defaults to (10, 20, 80, 90).
         seed (int, optional): Random seed for reproducibility. Defaults to 42.
         verbose (bool, optional): Whether to print verbose output (number of points at each iteration). Defaults to False.
 
@@ -55,7 +56,7 @@ def create_boundary_mask_auto(
         tomo=tomo, Z=Z_rand, Y=Y_rand, X=X_rand, N=N, boxsize=boxsize
     )
 
-    variance_thr = np.percentile(variances, percentile)
+    variance_thr = np.percentile(variances, var_percentile)
     idx = variances[:] > variance_thr
     idx = idx.squeeze()
     if verbose:
@@ -90,81 +91,53 @@ def create_boundary_mask_auto(
 
     else:
         # Fit two planes to the high-variance points: one for the top and one for the bottom.
-        # Over iterations they should roughly enclose all the high variance points we previously selected.
-        i = 1
 
-        while i <= iterations:
-            if i == 1:
-                # In the first iteration we have a single plane at the center:
-                D = distance_of_points_to_plane(x=X_rand, y=Y_rand, z=Z_rand, n=n, p=p)
+        D = distance_of_points_to_plane(x=X_rand, y=Y_rand, z=Z_rand, n=n, p=p)
 
-                # 'above' and 'below' definitions must be inverted because of internal coordinate conventions:
-                above = D < 0
-                below = D > 0
-                if verbose:
-                    n_above = np.sum(above)
-                    n_below = np.sum(below)
-                    print(
-                        f"Iteration {i}: {n_above} points above, {n_below} points below the plane."
-                    )
-                X_above, Y_above, Z_above = X_rand[above], Y_rand[above], Z_rand[above]
-                X_below, Y_below, Z_below = X_rand[below], Y_rand[below], Z_rand[below]
+        # 'above' and 'below' definitions must be inverted because of internal coordinate conventions:
 
-            else:
-                # From the second iteration we have two planes:
-                D_above = distance_of_points_to_plane(
-                    x=X_above, y=Y_above, z=Z_above, n=n_top, p=p_top
-                )
-                D_below = distance_of_points_to_plane(
-                    x=X_below, y=Y_below, z=Z_below, n=n_bottom, p=p_bottom
-                )
+        above_thr_max = np.percentile(D, percentile_thresholds[1])
+        above_thr_min = np.percentile(D, percentile_thresholds[0])
+        below_thr_min = np.percentile(D, percentile_thresholds[2])
+        below_thr_max = np.percentile(D, percentile_thresholds[3])
 
-                above = D_above < 0
-                below = D_below > 0
+        # above = D < above_thr
+        # below = D > below_thr
 
-                if verbose:
-                    n_above = np.sum(above)
-                    n_below = np.sum(below)
-                    print(
-                        f"Iteration {i}: {n_above} points above, {n_below} points below the plane."
-                    )
-                X_above, Y_above, Z_above = (
-                    X_above[above],
-                    Y_above[above],
-                    Z_above[above],
-                )
-                X_below, Y_below, Z_below = (
-                    X_below[below],
-                    Y_below[below],
-                    Z_below[below],
-                )
+        above = np.logical_and(D < above_thr_max, D > above_thr_min)
+        below = np.logical_and(D > below_thr_min, D < below_thr_max)
 
-            fit_top = RANSACRegressor()
-            fit_top.fit(np.transpose([X_above, Y_above]), Z_above)
-            fit_bottom = RANSACRegressor()
-            fit_bottom.fit(np.transpose([X_below, Y_below]), Z_below)
-            n_top = np.array(
-                [fit_top.estimator_.coef_[0], fit_top.estimator_.coef_[1], -1]
-            )
-            p_top = np.array([0, 0, fit_top.estimator_.intercept_])
-            n_bottom = np.array(
-                [fit_bottom.estimator_.coef_[0], fit_bottom.estimator_.coef_[1], -1]
-            )
-            p_bottom = np.array([0, 0, fit_bottom.estimator_.intercept_])
+        n_above = np.sum(above)
+        n_below = np.sum(below)
+        print(
+            f"{n_above} points above, {n_below} points below the plane."
+        )
 
-            if i == iterations:
-                Z_top = plane_equation_Z_from_XY(
-                    X=X, Y=Y, n=n_top, p=p_top, z_offset=+z_offset
-                )
-                Z_bottom = plane_equation_Z_from_XY(
-                    X=X, Y=Y, n=n_bottom, p=p_bottom, z_offset=-z_offset
-                )
+        X_above, Y_above, Z_above = X_rand[above], Y_rand[above], Z_rand[above]
+        X_below, Y_below, Z_below = X_rand[below], Y_rand[below], Z_rand[below]
 
-            i += 1
+        fit_top = RANSACRegressor()
+        fit_top.fit(np.transpose([X_above, Y_above]), Z_above)
+        fit_bottom = RANSACRegressor()
+        fit_bottom.fit(np.transpose([X_below, Y_below]), Z_below)
+        n_top = np.array(
+            [fit_top.estimator_.coef_[0], fit_top.estimator_.coef_[1], -1]
+        )
+        p_top = np.array([0, 0, fit_top.estimator_.intercept_])
+        n_bottom = np.array(
+            [fit_bottom.estimator_.coef_[0], fit_bottom.estimator_.coef_[1], -1]
+        )
+        p_bottom = np.array([0, 0, fit_bottom.estimator_.intercept_])
 
-    Z_top[Z_top > dims[0]] = dims[0]
-    Z_bottom[Z_bottom < 0] = 0
+        Z_top = plane_equation_Z_from_XY(
+                            X=X, Y=Y, n=n_top, p=p_top, z_offset=+z_offset
+                        )
+        Z_bottom = plane_equation_Z_from_XY(
+                            X=X, Y=Y, n=n_bottom, p=p_bottom, z_offset=-z_offset
+                        )
 
-    mask = make_boundary_mask(mask_size=dims, Z_top=Z_top, Z_bottom=Z_bottom)
+        mask = make_boundary_mask(mask_size=dims, Z_top=Z_top, Z_bottom=Z_bottom)
+
+        plt.imshow(np.flipud(mask[:, mask.shape[1] // 2, :]), cmap="gray")
 
     return mask
