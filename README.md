@@ -7,7 +7,7 @@ A CLI tool to automatically segment the lamella slab in cryo-ET volumes
 
 # Overview
 Slabify is a Python command-line tool to automatically segment the lamella slab from cellular cryo-electron tomography (cryo-ET) volumes. The program analyzes the local variance around random points inside the tomogram to find where the "interesting" density is. There are three modes of operation:
-1. Find the lamella boundaries by fitting two planes to the top and bottom sides of the slab iteratively (default).
+1. Find the lamella boundaries by fitting two planes to the top and bottom sides of the slab (default).
 2. Fit a single plane through the center of the lamella, then expand a slab mask of the given `--thickness` in Z. This mode is enabled by the `--simple` flag, and tends to work better in "difficult" cases.
 3. If all else fails, you can still manually define the lamella boundaries by clicking a few points (12, to be precise) in IMOD and have `slabify` fit two planes defining the top and bottom sides of the slab. See [instructions](https://github.com/CellArchLab/slabify-et/wiki/How-to-manually-create-a-lamella-boundary-mask-using-IMOD) for details.
 
