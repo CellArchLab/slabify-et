@@ -23,6 +23,8 @@ def slabify(
     percentile_thresholds: tuple = (10, 20, 80, 90),
     seed: int = 4056,
     verbose: bool = False,
+    write_points: bool = False,
+    points_file: str = "slabify_points.txt",
 ):
     # Check if a points file was provided:
     if isinstance(points, str):
@@ -55,6 +57,8 @@ def slabify(
             percentile_thresholds=percentile_thresholds,
             seed=seed,
             verbose=verbose,
+            write_points=write_points,
+            points_file=points_file
         )
 
     # Mask out some voxels away from the border in XY:

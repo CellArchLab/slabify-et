@@ -23,6 +23,8 @@ def create_boundary_mask_auto(
     percentile_thresholds: tuple = (10, 20, 80, 90),
     seed: int = 42,
     verbose: bool = False,
+    write_points: bool = False,
+    points_file: str = "slabify_points.txt",
 ) -> np.ndarray:
     """
     Automatically create a slab (boundary) mask by fitting one or two planes to enclose the points with high variance.
@@ -41,7 +43,8 @@ def create_boundary_mask_auto(
         percentile_thresholds (tuple, optional): Percentiles for defining the thresholds for above and below points. Defaults to (10, 20, 80, 90).
         seed (int, optional): Random seed for reproducibility. Defaults to 42.
         verbose (bool, optional): Whether to print verbose output (number of points at each iteration). Defaults to False.
-
+        write_points (bool, optional): Whether to write the sampled points to a file. Defaults to False.
+        points_file (str, optional): Path to the file where sampled points will be written. Defaults to "slabify_points.txt".
     Returns
     -------
         mask (np.ndarray): Binary mask representing the lamella slab.
@@ -113,6 +116,14 @@ def create_boundary_mask_auto(
             f"{n_above} points above, {n_below} points below the plane."
         )
 
+        if write_points:
+            l = np.zeros((X_rand.shape[0],), dtype=int)
+            l[above] = 1
+            l[below] = 2
+            A = np.array([X_rand, Y_rand, Z_rand, variances, D, l])
+            fmt = "%d", "%d", "%d", "%.3f", "%.3f", "%d"
+            np.savetxt(points_file, A.T, fmt=fmt, delimiter="\t", header="# X  Y   Z   variance    distance    label: 0=none, 1=top, 2=bottom")
+
         X_above, Y_above, Z_above = X_rand[above], Y_rand[above], Z_rand[above]
         X_below, Y_below, Z_below = X_rand[below], Y_rand[below], Z_rand[below]
 
@@ -137,7 +148,5 @@ def create_boundary_mask_auto(
                         )
 
         mask = make_boundary_mask(mask_size=dims, Z_top=Z_top, Z_bottom=Z_bottom)
-
-        plt.imshow(np.flipud(mask[:, mask.shape[1] // 2, :]), cmap="gray")
 
     return mask

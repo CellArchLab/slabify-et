@@ -83,7 +83,7 @@ def parse_args() -> argparse.Namespace:
     auto_opts.add_argument(
         "--boxsize",
         type=int,
-        default=32,
+        default=24,
         help="Box size (in pixels) to analyze variance around each sampled point.",
     )
     auto_opts.add_argument(
@@ -131,6 +131,18 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Print verbose output during plane fitting.",
     )
+    auto_opts.add_argument(
+        "--write-points",
+        default=False,
+        action="store_true",
+        help="Write the sampled points to a file.",
+    )
+    auto_opts.add_argument(
+        "--points-file",
+        type=str,
+        default="slabify_points.txt",
+        help="Path to the file where sampled points will be written.",
+    )
 
     if len(sys.argv) == 1:
         parser.print_help(sys.stderr)
@@ -160,6 +172,8 @@ def main():
     seed = args.seed
     angpix = args.angpix
     verbose = args.verbose
+    write_points = args.write_points
+    points_file = args.points_file
 
     inmrc = mrcfile.open(input, permissive=True)
     tomo = np.array(inmrc.data)
@@ -179,6 +193,8 @@ def main():
         percentile_thresholds=percentile_thresholds,
         seed=seed,
         verbose=verbose,
+        write_points=write_points,
+        points_file=points_file
     )
 
     if not angpix:
